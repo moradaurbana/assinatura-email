@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   User, 
@@ -23,9 +23,9 @@ import {
 
 // Default values based on the Morada Urbana theme
 const DEFAULT_VALUES = {
-  firstName: "JEFERSON",
-  lastName: "SOBRENOME",
-  title: "CONSULTORIA IMOBILIÁRIA",
+  firstName: "Jeferson",
+  lastName: "Bernardes",
+  title: "Consultor e Avaliador Imobiliário",
   company: "Morada Urbana",
   phone: "(11) 9 1234-5678",
   whatsapp: "(11) 9 1234-5678",
@@ -321,106 +321,176 @@ export default function App() {
               </button>
             </div>
 
-            {/* The Actual Signature Container */}
             <div className="bg-white p-4 md:p-8 rounded-[40px] shadow-[0_30px_100px_rgba(0,0,0,0.06)] border border-gray-100 overflow-x-auto">
-              <div className="mx-auto" style={{ width: '600px' }} ref={signatureRef}>
-                {/* Main Banner Table */}
-                <table cellPadding="0" cellSpacing="0" border={0} width="600" style={{ 
+              <div className="mx-auto" style={{ width: '650px' }}>
+                <table cellPadding="0" cellSpacing="0" border={0} width="650" ref={signatureRef} style={{ 
                   fontFamily: 'Arial, Helvetica, sans-serif', 
                   color: formData.textColor,
                   backgroundColor: '#ffffff',
-                  width: '600px',
+                  width: '650px',
+                  borderCollapse: 'collapse',
+                  msoTableLspace: '0pt',
+                  msoTableRspace: '0pt'
                 }}>
                   <tbody>
-                    {/* Top Content Row */}
+                    {/* Main Content Area */}
                     <tr>
-                      <td style={{ padding: '10px 0 20px 0' }}>
-                        <table cellPadding="0" cellSpacing="0" border={0} width="100%">
+                      <td align="left" valign="top" style={{ padding: '0 0 20px 0' }}>
+                        <table cellPadding="0" cellSpacing="0" border={0} width="650" style={{ borderCollapse: 'collapse' }}>
                           <tbody>
                             <tr>
+                              {/* Left Accent Bar */}
+                              <td width="4" bgcolor={formData.accentColor} valign="top" style={{ width: '4px', backgroundColor: formData.accentColor, fontSize: '1px', lineHeight: '1px' }}>
+                                &nbsp;
+                              </td>
+                              
+                              <td width="15" valign="top" style={{ width: '15px', fontSize: '1px', lineHeight: '1px' }}>&nbsp;</td>
+
                               {/* Photo Column */}
-                              {formData.photoUrl && (
-                                <td width="120" valign="middle" align="center">
-                                  <img 
-                                    src={formData.photoUrl} 
-                                    alt={formData.firstName} 
-                                    width="110"
-                                    height="135"
-                                    style={{ 
-                                      display: 'block', 
-                                      width: '110px',
-                                      height: '135px',
-                                      objectFit: 'cover',
-                                      borderLeft: `5px solid ${formData.accentColor}`,
-                                      borderRadius: '4px'
-                                    }} 
-                                    referrerPolicy="no-referrer"
-                                  />
-                                </td>
-                              )}
-
-                              {/* Info Column */}
-                              <td valign="middle" style={{ paddingLeft: '20px' }}>
-                                <div style={{ fontSize: '24px', textTransform: 'uppercase', color: formData.textColor, margin: '0', fontWeight: 'bold', lineHeight: '1.2' }}>
-                                  {formData.firstName} <span style={{ fontWeight: '300', color: '#666666' }}>{formData.lastName}</span>
-                                </div>
-                                
-                                <div style={{ fontSize: '11px', color: formData.accentColor, fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '2px', marginTop: '4px' }}>
-                                  {formData.title}
-                                </div>
-                                <div style={{ fontSize: '9px', color: '#9CA3AF', fontWeight: 'bold', marginBottom: '10px' }}>
-                                  {formData.creci} {formData.creci && formData.cnai && '|'} {formData.cnai}
-                                </div>
-
-                                {/* Contact Details */}
-                                <table cellPadding="0" cellSpacing="0" border={0}>
-                                  <tbody>
-                                    {[
-                                      { icon: 'https://img.icons8.com/ios-filled/50/' + formData.accentColor.replace('#', '') + '/phone.png', text: formData.phone },
-                                      { icon: 'https://img.icons8.com/ios-filled/50/' + formData.accentColor.replace('#', '') + '/whatsapp.png', text: formData.whatsapp },
-                                      { icon: 'https://img.icons8.com/ios-filled/50/' + formData.accentColor.replace('#', '') + '/mail.png', text: formData.email },
-                                      { icon: 'https://img.icons8.com/ios-filled/50/' + formData.accentColor.replace('#', '') + '/globe.png', text: formData.website }
-                                    ].map((item, i) => (
-                                      <tr key={i}>
-                                        <td style={{ paddingBottom: '4px' }}>
-                                          <table cellPadding="0" cellSpacing="0" border={0}>
-                                            <tbody>
-                                              <tr>
-                                                <td width="15" valign="middle">
-                                                  <img src={item.icon} width="11" height="11" style={{ display: 'block' }} />
-                                                </td>
-                                                <td style={{ paddingLeft: '8px', color: '#4B5563', fontSize: '10px', fontWeight: '600' }}>{item.text}</td>
-                                              </tr>
-                                            </tbody>
-                                          </table>
+                              <td width="130" valign="middle" align="center" style={{ width: '130px' }}>
+                                {formData.photoUrl && (
+                                  <table cellPadding="0" cellSpacing="0" border={0} width="130">
+                                    <tbody>
+                                      <tr>
+                                        <td align="center" valign="middle">
+                                          <img 
+                                            src={formData.photoUrl} 
+                                            alt="Foto" 
+                                            width="130" 
+                                            height="130" 
+                                            border="0"
+                                            style={{ display: 'block', border: '0', width: '130px', height: '130px' }} 
+                                            referrerPolicy="no-referrer"
+                                          />
                                         </td>
                                       </tr>
-                                    ))}
+                                    </tbody>
+                                  </table>
+                                )}
+                              </td>
+
+                              <td width="15" valign="top" style={{ width: '15px', fontSize: '1px', lineHeight: '1px' }}>&nbsp;</td>
+
+                              {/* Info Column */}
+                              <td width="300" valign="middle" align="left" style={{ width: '300px', textAlign: 'left' }}>
+                                <table cellPadding="0" cellSpacing="0" border={0} width="100%" align="left">
+                                  <tbody>
+                                    <tr>
+                                      <td align="left" valign="top" style={{ fontFamily: 'Arial, Helvetica, sans-serif', fontSize: '20px', color: formData.textColor, fontWeight: 'bold', lineHeight: '24px', textAlign: 'left', whiteSpace: 'nowrap' }}>
+                                        <font face="Arial, Helvetica, sans-serif" size="5" style={{ fontSize: '20px' }} color={formData.textColor}>
+                                          <b>{formData.firstName}</b>
+                                        </font>
+                                        &nbsp;
+                                        <font face="Arial, Helvetica, sans-serif" size="5" style={{ fontSize: '20px' }} color="#666666">
+                                          {formData.lastName}
+                                        </font>
+                                      </td>
+                                    </tr>
+                                    <tr>
+                                      <td height="5" style={{ fontSize: '1px', lineHeight: '5px' }} valign="top" align="left">&nbsp;</td>
+                                    </tr>
+                                    <tr>
+                                      <td align="left" valign="top" style={{ fontFamily: 'Arial, Helvetica, sans-serif', fontSize: '11px', color: formData.accentColor, fontWeight: 'bold', letterSpacing: '1px', lineHeight: '14px', textAlign: 'left', whiteSpace: 'nowrap' }}>
+                                        <font face="Arial, Helvetica, sans-serif" size="2" style={{ fontSize: '11px' }} color={formData.accentColor}>
+                                          <b>{formData.title}</b>
+                                        </font>
+                                      </td>
+                                    </tr>
+                                    <tr>
+                                      <td align="left" valign="top" style={{ fontFamily: 'Arial, Helvetica, sans-serif', fontSize: '9px', color: '#999999', fontWeight: 'bold', lineHeight: '12px', textAlign: 'left' }}>
+                                        <font face="Arial, Helvetica, sans-serif" size="1" style={{ fontSize: '9px' }} color="#999999">
+                                          <b>{formData.creci} {formData.creci && formData.cnai && '|'} {formData.cnai}</b>
+                                        </font>
+                                      </td>
+                                    </tr>
+                                    <tr>
+                                      <td height="12" style={{ fontSize: '1px', lineHeight: '12px' }} align="left" valign="top">&nbsp;</td>
+                                    </tr>
+                                    <tr>
+                                      <td align="left" valign="top">
+                                        <table cellPadding="0" cellSpacing="0" border={0} width="100%" align="left">
+                                          <tbody>
+                                            {[
+                                              { icon: 'https://img.icons8.com/material-rounded/24/' + formData.accentColor.replace('#', '') + '/phone.png', text: formData.phone, show: !!formData.phone },
+                                              { icon: 'https://img.icons8.com/material-rounded/24/' + formData.accentColor.replace('#', '') + '/whatsapp.png', text: formData.whatsapp, show: !!formData.whatsapp },
+                                              { icon: 'https://img.icons8.com/material-rounded/24/' + formData.accentColor.replace('#', '') + '/new-post.png', text: formData.email, show: !!formData.email },
+                                              { icon: 'https://img.icons8.com/material-rounded/24/' + formData.accentColor.replace('#', '') + '/globe.png', text: formData.website, show: !!formData.website }
+                                            ].filter(item => item.show).map((item, idx) => (
+                                              <tr key={idx}>
+                                                <td align="left" valign="top" style={{ paddingBottom: '4px' }}>
+                                                  <table cellPadding="0" cellSpacing="0" border={0} align="left">
+                                                    <tbody>
+                                                      <tr>
+                                                        <td width="16" valign="middle" align="left">
+                                                          <img src={item.icon} width="12" height="12" border="0" style={{ display: 'block', border: '0' }} />
+                                                        </td>
+                                                        <td align="left" valign="middle" style={{ paddingLeft: '8px', color: '#444444', fontFamily: 'Arial, Helvetica, sans-serif', fontSize: '10px', fontWeight: 'bold', lineHeight: '12px' }}>
+                                                          <font face="Arial, Helvetica, sans-serif" size="1" style={{ fontSize: '10px' }} color="#444444">
+                                                            <b>{item.text}</b>
+                                                          </font>
+                                                        </td>
+                                                      </tr>
+                                                    </tbody>
+                                                  </table>
+                                                </td>
+                                              </tr>
+                                            ))}
+                                          </tbody>
+                                        </table>
+                                      </td>
+                                    </tr>
                                   </tbody>
                                 </table>
                               </td>
 
+                              <td width="15" valign="top" style={{ width: '15px', fontSize: '1px', lineHeight: '1px' }}>&nbsp;</td>
+
                               {/* Vertical Separator */}
-                              <td width="1" bgcolor="#f3f3f3" style={{ padding: '0' }}></td>
+                              <td width="1" bgcolor="#E0E0E0" valign="top" style={{ width: '1px', backgroundColor: '#E0E0E0', fontSize: '1px', lineHeight: '1px' }}>
+                                &nbsp;
+                              </td>
+
+                              <td width="15" valign="top" style={{ width: '15px', fontSize: '1px', lineHeight: '1px' }}>&nbsp;</td>
 
                               {/* Logo Column */}
-                              <td width="160" valign="middle" align="center" style={{ paddingLeft: '20px' }}>
+                              <td width="150" valign="middle" align="center" style={{ width: '150px' }}>
                                 {formData.logoUrl && (
-                                  <table cellPadding="0" cellSpacing="0" border={0}>
+                                  <table cellPadding="0" cellSpacing="0" border={0} width="100%">
                                     <tbody>
                                       <tr>
-                                        <td align="center">
+                                        <td align="center" valign="middle">
                                           <img 
                                             src={formData.logoUrl} 
                                             alt="Logo" 
                                             height="45"
-                                            style={{ display: 'block', height: '45px', width: 'auto', maxWidth: '140px', marginBottom: '10px' }} 
+                                            border="0"
+                                            style={{ display: 'block', height: '45px', width: 'auto', border: '0' }} 
                                             referrerPolicy="no-referrer"
                                           />
-                                          <div style={{ height: '2px', width: '30px', backgroundColor: formData.accentColor, margin: '8px auto' }}></div>
-                                          <div style={{ fontSize: '8px', color: '#888', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', maxWidth: '130px', marginTop: '8px', lineHeight: '1.4' }}>
-                                            {formData.slogan}
-                                          </div>
+                                          <table cellPadding="0" cellSpacing="0" border={0} width="30">
+                                            <tbody>
+                                              <tr>
+                                                <td height="10" style={{ fontSize: '1px', lineHeight: '10px' }}>&nbsp;</td>
+                                              </tr>
+                                              <tr>
+                                                <td height="2" bgcolor={formData.accentColor} style={{ height: '2px', backgroundColor: formData.accentColor, fontSize: '1px', lineHeight: '1px' }}>&nbsp;</td>
+                                              </tr>
+                                              <tr>
+                                                <td height="10" style={{ fontSize: '1px', lineHeight: '10px' }}>&nbsp;</td>
+                                              </tr>
+                                            </tbody>
+                                          </table>
+                                          <table cellPadding="0" cellSpacing="0" border={0} width="140">
+                                            <tbody>
+                                              <tr>
+                                                <td align="center" valign="top" style={{ fontFamily: 'Arial, Helvetica, sans-serif', fontSize: '8px', color: '#888888', fontWeight: 'bold', letterSpacing: '1px', lineHeight: '1.4' }}>
+                                                  <font face="Arial, Helvetica, sans-serif" size="1" style={{ fontSize: '8px' }} color="#888888">
+                                                    <b>{formData.slogan}</b>
+                                                  </font>
+                                                </td>
+                                              </tr>
+                                            </tbody>
+                                          </table>
                                         </td>
                                       </tr>
                                     </tbody>
@@ -433,11 +503,11 @@ export default function App() {
                       </td>
                     </tr>
 
-                    {/* Footer - Floating / 3D Look */}
+                    {/* Pillars Row */}
                     {formData.showPillars && (
                       <tr>
-                        <td style={{ paddingTop: '20px' }}>
-                          <table cellPadding="0" cellSpacing="0" border={0} width="600">
+                        <td align="left" valign="top" style={{ paddingTop: '20px' }}>
+                          <table cellPadding="0" cellSpacing="0" border={0} width="650" style={{ borderCollapse: 'collapse' }}>
                             <tbody>
                               <tr>
                                 {[
@@ -445,29 +515,48 @@ export default function App() {
                                   { title: formData.pillarTitle2, desc: formData.pillarDesc2, icon: 'https://img.icons8.com/ios-filled/50/ffffff/handshake.png' },
                                   { title: formData.pillarTitle3, desc: formData.pillarDesc3, icon: 'https://img.icons8.com/ios-filled/50/ffffff/home.png' }
                                 ].map((pillar, idx) => (
-                                  <td key={idx} width="200" align="center" style={{ padding: '0 8px' }}>
-                                    {/* Floating Card Effect */}
-                                    <table cellPadding="0" cellSpacing="0" border={0} width="100%" style={{ 
-                                      backgroundColor: '#ffffff', 
-                                      border: '1px solid #f3f4f6',
-                                      borderBottom: `4px solid ${formData.accentColor}`,
-                                      borderRadius: '12px',
-                                    }}>
+                                  <td key={idx} width="216" align="center" valign="top" style={{ width: '216px', padding: '0 5px' }}>
+                                    <table cellPadding="0" cellSpacing="0" border={0} width="100%" bgcolor="#ffffff" style={{ border: '1px solid #eeeeee' }}>
                                       <tbody>
                                         <tr>
-                                          <td align="center" style={{ padding: '12px 10px' }}>
+                                          <td align="center" valign="top" style={{ padding: '15px 10px' }}>
                                             <table cellPadding="0" cellSpacing="0" border={0}>
                                               <tbody>
                                                 <tr>
-                                                  <td align="center" valign="middle" bgcolor={formData.accentColor} style={{ width: '22px', height: '22px', borderRadius: '50%' }}>
-                                                    <img src={pillar.icon} width="11" height="11" style={{ display: 'block' }} />
+                                                  <td align="center" valign="middle" bgcolor={formData.accentColor} width="22" height="22" style={{ width: '22px', height: '22px', backgroundColor: formData.accentColor }}>
+                                                    <img src={pillar.icon} width="11" height="11" border="0" style={{ display: 'block', border: '0' }} />
                                                   </td>
                                                 </tr>
                                               </tbody>
                                             </table>
-                                            <div style={{ fontSize: '9px', fontWeight: 'bold', color: formData.textColor, textTransform: 'uppercase', letterSpacing: '0.3px', marginTop: '8px' }}>{pillar.title}</div>
-                                            <div style={{ fontSize: '7.5px', color: '#6B7280', marginTop: '3px', lineHeight: '1.2', maxWidth: '150px' }}>{pillar.desc}</div>
+                                            <table cellPadding="0" cellSpacing="0" border={0} width="100%">
+                                              <tbody>
+                                                <tr>
+                                                  <td height="8" style={{ fontSize: '1px', lineHeight: '8px' }}>&nbsp;</td>
+                                                </tr>
+                                                <tr>
+                                                  <td align="center" valign="top" style={{ fontFamily: 'Arial, Helvetica, sans-serif', fontSize: '9px', fontWeight: 'bold', color: formData.textColor, letterSpacing: '0.3px', lineHeight: '12px' }}>
+                                                    <font face="Arial, Helvetica, sans-serif" size="1" style={{ fontSize: '9px' }} color={formData.textColor}>
+                                                      <b>{pillar.title}</b>
+                                                    </font>
+                                                  </td>
+                                                </tr>
+                                                <tr>
+                                                  <td height="5" style={{ fontSize: '1px', lineHeight: '5px' }}>&nbsp;</td>
+                                                </tr>
+                                                <tr>
+                                                  <td align="center" valign="top" style={{ fontFamily: 'Arial, Helvetica, sans-serif', fontSize: '7.5px', color: '#666666', lineHeight: '11px' }}>
+                                                    <font face="Arial, Helvetica, sans-serif" size="1" style={{ fontSize: '7.5px' }} color="#666666">
+                                                      {pillar.desc}
+                                                    </font>
+                                                  </td>
+                                                </tr>
+                                              </tbody>
+                                            </table>
                                           </td>
+                                        </tr>
+                                        <tr>
+                                          <td height="4" bgcolor={formData.accentColor} style={{ height: '4px', backgroundColor: formData.accentColor, fontSize: '1px', lineHeight: '4px' }}>&nbsp;</td>
                                         </tr>
                                       </tbody>
                                     </table>
