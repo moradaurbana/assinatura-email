@@ -1,10 +1,8 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { toJpeg } from 'html-to-image';
+import jsPDF from 'jspdf';
+import { QRCodeSVG } from 'qrcode.react';
 import { 
   User, 
   Briefcase, 
@@ -18,7 +16,11 @@ import {
   Smartphone,
   Eye,
   Settings2,
-  MessageSquareText
+  MessageSquareText,
+  CreditCard,
+  Download,
+  Layout,
+  QrCode
 } from 'lucide-react';
 
 // Default values based on the Morada Urbana theme
@@ -27,13 +29,13 @@ const DEFAULT_VALUES = {
   lastName: "Bernardes",
   title: "Consultor e Avaliador Imobiliário",
   company: "Morada Urbana",
-  phone: "(11) 9 1234-5678",
-  whatsapp: "(11) 9 1234-5678",
-  email: "contato@moradaurbana.com.br",
+  phone: "(11) 98712-1667",
+  whatsapp: "(11) 98712-1667",
+  email: "jeferson@moradaurbana.com.br",
   website: "www.moradaurbana.com.br",
   address: "Rua das Orquídeas, 123 • Sala 45 • Moema, SP",
-  creci: "CRECI: 123.456-F",
-  cnai: "CNAI: 45.678",
+  creci: "297955-F",
+  cnai: "54866",
   slogan: "CONECTANDO PESSOAS AOS MELHORES LUGARES.",
   pillarTitle1: "ATENDIMENTO PERSONALIZADO",
   pillarDesc1: "FOCADO NAS SUAS NECESSIDADES",
@@ -41,11 +43,12 @@ const DEFAULT_VALUES = {
   pillarDesc2: "EM CADA NEGOCIAÇÃO",
   pillarTitle3: "ESPECIALISTA EM IMÓVEIS",
   pillarDesc3: "RESIDENCIAIS E COMERCIAIS",
-  photoUrl: "input_file_0.png",
-  logoUrl: "input_file_1.png",
+  photoUrl: "https://i.ibb.co/60qG0F8/corretor-exemplo.png",
+  logoUrl: "https://i.ibb.co/PmdXm4z/logo-morada.png",
   accentColor: "#F27D26",
   textColor: "#1D2431",
-  showPillars: true
+  showPillars: true,
+  showQRCode: true
 };
 
 export default function App() {
@@ -60,9 +63,15 @@ export default function App() {
     }
     return DEFAULT_VALUES;
   });
+  
   const [copied, setCopied] = useState(false);
-  const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit');
-  const signatureRef = useRef<HTMLDivElement>(null);
+  const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('preview');
+  const [appMode, setAppMode] = useState<'signature' | 'card'>('signature');
+  const [isExporting, setIsExporting] = useState(false);
+  
+  const signatureRef = useRef<HTMLTableElement>(null);
+  const cardFrontRef = useRef<HTMLDivElement>(null);
+  const cardBackRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     localStorage.setItem('signature_data', JSON.stringify(formData));
@@ -76,7 +85,6 @@ export default function App() {
   const copyToClipboard = () => {
     if (!signatureRef.current) return;
     
-    // Create a range and select the content
     const range = document.createRange();
     range.selectNode(signatureRef.current);
     window.getSelection()?.removeAllRanges();
@@ -96,11 +104,125 @@ export default function App() {
   const [showRawHtml, setShowRawHtml] = useState(false);
 
   const getRawHtml = () => {
-    return signatureRef.current?.innerHTML || '';
+    return signatureRef.current?.outerHTML || '';
+  };
+
+  const generateVCard = () => {
+    const cleanPhone = (phone: string) => phone ? phone.replace(/\D/g, '') : '';
+    // Minimalist vCard 2.1 for maximum scanability
+    return [
+      'BEGIN:VCARD',
+      'VERSION:2.1',
+      `FN:${formData.firstName} ${formData.lastName}`,
+      `TEL;CELL;VOICE:${cleanPhone(formData.whatsapp)}`,
+      `EMAIL;INTERNET:${formData.email}`,
+      'END:VCARD'
+    ].join('\r\n');
+  };
+
+  const downloadFullPDF = async () => {
+    const front = document.getElementById('export-front');
+    const back = document.getElementById('export-back');
+    if (!front || !back) return;
+    
+    setIsExporting(true);
+    try {
+      // High-res pixel ratio for printing (4x capture = ~4000px width)
+      const frontData = await toJpeg(front, { quality: 1, pixelRatio: 4 });
+      const backData = await toJpeg(back, { quality: 1, pixelRatio: 4 });
+      
+      const pdf = new jsPDF({
+        orientation: 'landscape',
+        unit: 'mm',
+        format: [90, 50],
+        compress: true 
+      });
+      
+      // Page 1: Front
+      pdf.addImage(frontData, 'JPEG', 0, 0, 90, 50, undefined, 'FAST');
+      
+      // Page 2: Back
+      pdf.addPage([90, 50], 'landscape');
+      pdf.addImage(backData, 'JPEG', 0, 0, 90, 50, undefined, 'FAST');
+      
+      pdf.save(`Cartao_Premium_Morada_${formData.firstName}.pdf`);
+    } catch (err) {
+      console.error('PDF generation failed', err);
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] text-[#1D2431] font-sans pb-20">
+      {/* Hidden Export Rendering Area (To avoid scale issues) */}
+      <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
+        <div id="export-front" style={{ width: '1063px', height: '591px', backgroundColor: '#ffffff', position: 'relative' }}>
+          <div style={{ position: 'absolute', left: 0, top: 0, width: '25px', height: '100%', backgroundColor: formData.accentColor }} />
+          <div className="h-full w-full flex flex-col items-center justify-center p-20 text-center">
+            <img src={formData.logoUrl} alt="Logo" style={{ width: '560px', marginBottom: '50px' }} />
+            <div style={{ width: '140px', height: '4px', backgroundColor: formData.accentColor, marginBottom: '36px', borderRadius: '2px' }} />
+            <p style={{ fontFamily: 'Arial', fontWeight: 'bold', fontSize: '26px', color: '#666666', letterSpacing: '10px', textTransform: 'uppercase', lineHeight: '1.4' }}>
+              {formData.slogan}
+            </p>
+          </div>
+        </div>
+
+        <div id="export-back" style={{ width: '1063px', height: '591px', backgroundColor: '#ffffff', display: 'flex', position: 'relative', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', top: '-100px', right: '-100px', width: '400px', height: '400px', background: `${formData.accentColor}`, opacity: 0.05, borderRadius: '60px', transform: 'rotate(25deg)' }} />
+          <div style={{ width: '15px', backgroundColor: formData.accentColor }} />
+          <div className="flex-1 flex flex-col justify-between p-16" style={{ position: 'relative', zIndex: 2 }}>
+            <div className="flex justify-between items-start">
+              <div className="text-left">
+                <h2 style={{ fontFamily: 'Arial', fontWeight: 'bold', fontSize: '64px', color: formData.textColor, marginBottom: '6px' }}>
+                  {formData.firstName} <span style={{ color: '#666666', fontWeight: 'normal' }}>{formData.lastName}</span>
+                </h2>
+                <div style={{ height: '6px', width: '120px', backgroundColor: formData.accentColor, marginBottom: '20px' }} />
+                <p style={{ fontFamily: 'Arial', fontWeight: 'bold', fontSize: '28px', color: formData.accentColor, textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '10px' }}>
+                  {formData.title}
+                </p>
+                <p style={{ fontFamily: 'Arial', fontWeight: 'bold', fontSize: '22px', color: '#999999' }}>
+                  {formData.creci ? `CRECI: ${formData.creci}` : ''} {formData.creci && formData.cnai ? ' • ' : ''} {formData.cnai ? `CNAI: ${formData.cnai}` : ''}
+                </p>
+              </div>
+              <img src={formData.logoUrl} alt="Logo Small" style={{ width: '280px', marginTop: '10px' }} />
+            </div>
+            
+            <div className="flex justify-between items-end mt-12">
+              <div className="space-y-6 pb-4">
+                 {[
+                   { icon: 'whatsapp', text: formData.whatsapp },
+                   { icon: 'new-post', text: formData.email },
+                   { icon: 'globe', text: formData.website },
+                 ].filter(i => i.text).map((item, idx) => (
+                   <div key={idx} className="flex items-center gap-6">
+                     <div style={{ width: '56px', height: '56px', borderRadius: '14px', backgroundColor: '#FDF7F2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <img src={`https://img.icons8.com/material-rounded/48/${formData.accentColor.replace('#', '')}/${item.icon}.png`} width="28" style={{ margin: '0 auto' }} />
+                     </div>
+                     <span style={{ fontSize: '28px', fontWeight: 'bold', color: '#333333', fontFamily: 'Arial' }}>{item.text}</span>
+                   </div>
+                 ))}
+              </div>
+
+              {/* QR Code on Back (Export) */}
+              {formData.showQRCode && (
+                <div style={{ padding: '15px', background: 'white', borderRadius: '16px', boxShadow: '0 10px 40px rgba(0,0,0,0.05)', border: '1px solid #f0f0f0' }}>
+                  <QRCodeSVG 
+                    value={generateVCard()} 
+                    size={180} 
+                    level="M" 
+                    includeMargin={true}
+                    fgColor="#000000"
+                  />
+                  <p style={{ fontSize: '14px', fontWeight: '900', textAlign: 'center', marginTop: '12px', color: formData.accentColor, fontFamily: 'Arial', letterSpacing: '2px', textTransform: 'uppercase' }}>
+                    CONTATO DIGITAL
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
       {/* Raw HTML Modal */}
       <AnimatePresence>
         {showRawHtml && (
@@ -150,15 +272,33 @@ export default function App() {
       </AnimatePresence>
 
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 py-6 px-8 flex justify-between items-center sticky top-0 z-50">
+      <header className="bg-white border-b border-gray-200 py-6 px-8 flex flex-col md:flex-row justify-between items-center sticky top-0 z-50 gap-4">
         <div className="flex items-center space-x-3">
           <div className="bg-[#F27D26] p-2 rounded-lg">
-            <Mail className="text-white w-6 h-6" />
+            <Layout className="text-white w-6 h-6" />
           </div>
           <div>
             <h1 className="text-xl font-bold tracking-tight">Morada Urbana</h1>
-            <p className="text-xs text-gray-500 font-medium uppercase tracking-widest">Gerador de Assinaturas</p>
+            <p className="text-xs text-gray-500 font-medium uppercase tracking-widest">Central de Materiais</p>
           </div>
+        </div>
+
+        {/* Global Mode Switcher */}
+        <div className="flex bg-gray-100 p-1.5 rounded-2xl">
+          <button 
+            onClick={() => setAppMode('signature')}
+            className={`flex items-center gap-2 px-6 py-2 rounded-xl text-sm font-bold transition-all ${appMode === 'signature' ? 'bg-white shadow-md text-[#F27D26]' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            <Mail className="w-4 h-4" />
+            Assinatura
+          </button>
+          <button 
+            onClick={() => setAppMode('card')}
+            className={`flex items-center gap-2 px-6 py-2 rounded-xl text-sm font-bold transition-all ${appMode === 'card' ? 'bg-white shadow-md text-[#F27D26]' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            <CreditCard className="w-4 h-4" />
+            Cartão de Visita
+          </button>
         </div>
         
         <div className="flex bg-gray-100 p-1 rounded-full md:hidden">
@@ -185,30 +325,22 @@ export default function App() {
             <section className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
               <div className="flex items-center space-x-2 mb-6">
                 <Settings2 className="w-4 h-4 text-[#F27D26]" />
-                <h2 className="text-sm font-bold uppercase tracking-wider">Informações</h2>
+                <h2 className="text-sm font-bold uppercase tracking-wider">Informações Gerais</h2>
               </div>
               
               <div className="space-y-5">
                 {[
                   { id: 'firstName', label: 'Primeiro Nome', icon: User },
                   { id: 'lastName', label: 'Sobrenome', icon: User },
-                  { id: 'title', label: 'Cargo/Subtitle', icon: Briefcase },
+                  { id: 'title', label: 'Cargo', icon: Briefcase },
                   { id: 'phone', label: 'Telefone', icon: Phone },
                   { id: 'whatsapp', label: 'WhatsApp', icon: Smartphone },
                   { id: 'email', label: 'E-mail', icon: Mail },
                   { id: 'website', label: 'Website', icon: Globe },
                   { id: 'address', label: 'Endereço', icon: MapPin },
-                  { id: 'creci', label: 'CRECI', icon: Settings2 },
-                  { id: 'cnai', label: 'CNAI', icon: Settings2 },
-                  { id: 'slogan', label: 'Slogan (Direita)', icon: MessageSquareText },
-                  { id: 'pillarTitle1', label: 'Diferencial 1 (Título)', icon: MessageSquareText },
-                  { id: 'pillarDesc1', label: 'Diferencial 1 (Subtítulo)', icon: MessageSquareText },
-                  { id: 'pillarTitle2', label: 'Diferencial 2 (Título)', icon: MessageSquareText },
-                  { id: 'pillarDesc2', label: 'Diferencial 2 (Subtítulo)', icon: MessageSquareText },
-                  { id: 'pillarTitle3', label: 'Diferencial 3 (Título)', icon: MessageSquareText },
-                  { id: 'pillarDesc3', label: 'Diferencial 3 (Subtítulo)', icon: MessageSquareText },
-                  { id: 'photoUrl', label: 'URL da Foto (Link Direto)', icon: ImageIcon },
-                  { id: 'logoUrl', label: 'URL do Logo (Link Direto)', icon: ImageIcon },
+                  { id: 'creci', label: 'Nº CRECI', icon: Settings2 },
+                  { id: 'cnai', label: 'Nº CNAI', icon: Settings2 },
+                  { id: 'slogan', label: 'Slogan da Empresa', icon: MessageSquareText },
                 ].map((field) => (
                   <div key={field.id} className="relative">
                     <label htmlFor={field.id} className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">
@@ -222,376 +354,349 @@ export default function App() {
                         name={field.id}
                         value={(formData as any)[field.id]}
                         onChange={handleChange}
-                        className={`w-full pl-10 pr-4 py-2.5 bg-gray-50 border rounded-xl text-sm transition-all focus:outline-none focus:ring-2 focus:ring-[#F27D26]/10 focus:border-[#F27D26] focus:bg-white ${
-                          (field.id === 'photoUrl' || field.id === 'logoUrl') && 
-                          (formData as any)[field.id].includes('ibb.co/') && !(formData as any)[field.id].includes('i.ibb.co') 
-                          ? 'border-amber-300' : 'border-gray-100'
-                        }`}
+                        className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm transition-all focus:outline-none focus:ring-2 focus:ring-[#F27D26]/10 focus:border-[#F27D26] focus:bg-white"
                         placeholder={`Digite seu ${field.label.toLowerCase()}...`}
                       />
                     </div>
-                    {(field.id === 'photoUrl' || field.id === 'logoUrl') && 
-                     (formData as any)[field.id].includes('ibb.co/') && !(formData as any)[field.id].includes('i.ibb.co') && (
-                      <p className="mt-1 text-[10px] text-amber-600 font-medium">
-                        ⚠️ No ImgBB, use o <b>"Link Direto"</b> (botão de copiar link direto).
-                      </p>
-                    )}
                   </div>
                 ))}
 
-                <div className="pt-4 grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Cor de Destaque</label>
-                    <div className="flex items-center space-x-2 bg-gray-50 p-2 rounded-xl border border-gray-100">
-                      <input 
-                        type="color" 
-                        name="accentColor"
-                        value={formData.accentColor}
-                        onChange={handleChange as any}
-                        className="w-10 h-10 rounded-lg border-none cursor-pointer bg-transparent"
-                      />
-                      <span className="text-xs font-mono text-gray-500">{formData.accentColor}</span>
+                {appMode === 'card' && (
+                  <div className="space-y-5 pt-8 border-t border-gray-100">
+                    <div className="flex items-center space-x-2 mb-2">
+                       <QrCode className="w-4 h-4 text-[#F27D26]" />
+                       <h3 className="text-[10px] font-black text-gray-300 uppercase tracking-[0.2em]">Configurações do Cartão</h3>
+                    </div>
+                    
+                    <div className="pt-2">
+                      <label className="flex items-center justify-between cursor-pointer group p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
+                        <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Incluir QR Code (VCard)</span>
+                        <input 
+                          type="checkbox" 
+                          name="showQRCode"
+                          checked={formData.showQRCode}
+                          onChange={handleChange}
+                          className="w-4 h-4 rounded border-gray-300 text-[#F27D26] focus:ring-[#F27D26]"
+                        />
+                      </label>
+                      <p className="mt-2 text-[10px] text-gray-400 leading-relaxed px-1">
+                        O QR Code permite que seus clientes salvem seu contato instantaneamente ao escanear o verso do cartão.
+                      </p>
                     </div>
                   </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Cor do Texto</label>
-                    <div className="flex items-center space-x-2 bg-gray-50 p-2 rounded-xl border border-gray-100">
-                      <input 
-                        type="color" 
-                        name="textColor"
-                        value={formData.textColor}
-                        onChange={handleChange as any}
-                        className="w-10 h-10 rounded-lg border-none cursor-pointer bg-transparent"
-                      />
-                      <span className="text-xs font-mono text-gray-500">{formData.textColor}</span>
+                )}
+                {appMode === 'signature' && (
+                  <div className="space-y-5 pt-8 border-t border-gray-100">
+                    <h3 className="text-[10px] font-black text-gray-300 uppercase tracking-[0.2em]">Configurações da Assinatura</h3>
+                    {[
+                      { id: 'pillarTitle1', label: 'Diferencial 1 (Título)', icon: MessageSquareText },
+                      { id: 'pillarDesc1', label: 'Diferencial 1 (Desc)', icon: MessageSquareText },
+                      { id: 'pillarTitle2', label: 'Diferencial 2 (Título)', icon: MessageSquareText },
+                      { id: 'photoUrl', label: 'URL da Foto (Avatar)', icon: ImageIcon },
+                      { id: 'logoUrl', label: 'URL do Logotipo', icon: ImageIcon },
+                    ].map((field) => (
+                      <div key={field.id} className="relative">
+                        <label htmlFor={field.id} className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">
+                          {field.label}
+                        </label>
+                        <div className="relative group">
+                          <field.icon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300 group-focus-within:text-[#F27D26] transition-colors" />
+                          <input
+                            id={field.id}
+                            type="text"
+                            name={field.id}
+                            value={(formData as any)[field.id]}
+                            onChange={handleChange}
+                            className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#F27D26]/10 focus:border-[#F27D26]"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                    
+                    <div className="pt-4 border-t border-gray-100">
+                      <label className="flex items-center justify-between cursor-pointer group p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
+                        <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Exibir Rodapé (Icons)</span>
+                        <input 
+                          type="checkbox" 
+                          name="showPillars"
+                          checked={formData.showPillars}
+                          onChange={handleChange}
+                          className="w-4 h-4 rounded border-gray-300 text-[#F27D26] focus:ring-[#F27D26]"
+                        />
+                      </label>
                     </div>
+
+                    <button 
+                      onClick={() => setShowRawHtml(true)}
+                      className="w-full py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl text-xs font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Eye className="w-3 h-3" />
+                      Visualizar HTML
+                    </button>
                   </div>
-                </div>
-
-                <div className="pt-4 border-t border-gray-100">
-                  <label className="flex items-center justify-between cursor-pointer group p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
-                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Exibir Diferenciais (Rodapé)</span>
-                    <input 
-                      type="checkbox" 
-                      name="showPillars"
-                      checked={formData.showPillars}
-                      onChange={handleChange}
-                      className="w-4 h-4 rounded border-gray-300 text-[#F27D26] focus:ring-[#F27D26]"
-                    />
-                  </label>
-                </div>
-
-                <div className="pt-4 border-t border-gray-50">
-                  <button 
-                    onClick={() => setShowRawHtml(true)}
-                    className="w-full py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl text-xs font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-2"
-                  >
-                    <Eye className="w-3 h-3" />
-                    Ver Código HTML (Avançado)
-                  </button>
-                </div>
+                )}
               </div>
             </section>
-
-            <div className="bg-orange-50 p-6 rounded-2xl border border-orange-100">
-              <h3 className="text-orange-800 text-xs font-bold uppercase tracking-wider mb-2">Dica Pro</h3>
-              <p className="text-orange-700/80 text-sm leading-relaxed">
-                Para que sua assinatura apareça corretamente para todos, use URLs de fotos hospedadas publicamente (ex: seu site ou LinkedIn).
-              </p>
-            </div>
           </div>
 
           {/* Preview Panel */}
           <div className={`lg:col-span-8 space-y-8 ${activeTab === 'edit' ? 'hidden md:block' : 'block'}`}>
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center space-x-2">
-                <Eye className="w-4 h-4 text-[#F27D26]" />
-                <h2 className="text-sm font-bold uppercase tracking-wider">Visualização Realista</h2>
-              </div>
-              <button
-                onClick={copyToClipboard}
-                className={`flex items-center space-x-2 px-6 py-2.5 rounded-full text-sm font-bold transition-all shadow-lg ${
-                  copied 
-                  ? 'bg-green-500 text-white shadow-green-200' 
-                  : 'bg-[#1D2431] text-white hover:bg-black shadow-gray-200 active:scale-95'
-                }`}
-              >
-                {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                <span>{copied ? 'Copiado!' : 'Copiar Assinatura'}</span>
-              </button>
-            </div>
+            
+            {appMode === 'signature' ? (
+              <>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center space-x-2">
+                    <Mail className="w-4 h-4 text-[#F27D26]" />
+                    <h2 className="text-sm font-bold uppercase tracking-wider">Assinatura de E-mail</h2>
+                  </div>
+                  <button
+                    onClick={copyToClipboard}
+                    className={`flex items-center space-x-2 px-8 py-3 rounded-full text-sm font-extrabold transition-all shadow-xl hover:scale-105 active:scale-95 ${
+                      copied 
+                      ? 'bg-green-500 text-white shadow-green-100' 
+                      : 'bg-[#1D2431] text-white hover:bg-black shadow-gray-200'
+                    }`}
+                  >
+                    {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                    <span>{copied ? 'Copiado para o CLipboard!' : 'COPIAR ASSINATURA'}</span>
+                  </button>
+                </div>
 
-            <div className="bg-white p-4 md:p-8 rounded-[40px] shadow-[0_30px_100px_rgba(0,0,0,0.06)] border border-gray-100 overflow-x-auto">
-              <div className="mx-auto" style={{ width: '650px' }}>
-                <table cellPadding="0" cellSpacing="0" border={0} width="650" ref={signatureRef} style={{ 
-                  fontFamily: 'Arial, Helvetica, sans-serif', 
-                  color: formData.textColor,
-                  backgroundColor: '#ffffff',
-                  width: '650px',
-                  borderCollapse: 'collapse',
-                  msoTableLspace: '0pt',
-                  msoTableRspace: '0pt'
-                }}>
-                  <tbody>
-                    {/* Main Content Area */}
-                    <tr>
-                      <td align="left" valign="top" style={{ padding: '0 0 20px 0' }}>
-                        <table cellPadding="0" cellSpacing="0" border={0} width="650" style={{ borderCollapse: 'collapse' }}>
-                          <tbody>
-                            <tr>
-                              {/* Left Accent Bar */}
-                              <td width="4" bgcolor={formData.accentColor} valign="top" style={{ width: '4px', backgroundColor: formData.accentColor, fontSize: '1px', lineHeight: '1px' }}>
-                                &nbsp;
-                              </td>
-                              
-                              <td width="15" valign="top" style={{ width: '15px', fontSize: '1px', lineHeight: '1px' }}>&nbsp;</td>
-
-                              {/* Photo Column */}
-                              <td width="130" valign="middle" align="center" style={{ width: '130px' }}>
-                                {formData.photoUrl && (
-                                  <table cellPadding="0" cellSpacing="0" border={0} width="130">
-                                    <tbody>
-                                      <tr>
-                                        <td align="center" valign="middle">
-                                          <img 
-                                            src={formData.photoUrl} 
-                                            alt="Foto" 
-                                            width="130" 
-                                            height="130" 
-                                            border="0"
-                                            style={{ display: 'block', border: '0', width: '130px', height: '130px' }} 
-                                            referrerPolicy="no-referrer"
-                                          />
-                                        </td>
-                                      </tr>
-                                    </tbody>
-                                  </table>
-                                )}
-                              </td>
-
-                              <td width="15" valign="top" style={{ width: '15px', fontSize: '1px', lineHeight: '1px' }}>&nbsp;</td>
-
-                              {/* Info Column */}
-                              <td width="300" valign="middle" align="left" style={{ width: '300px', textAlign: 'left' }}>
-                                <table cellPadding="0" cellSpacing="0" border={0} width="100%" align="left">
-                                  <tbody>
-                                    <tr>
-                                      <td align="left" valign="top" style={{ fontFamily: 'Arial, Helvetica, sans-serif', fontSize: '20px', color: formData.textColor, fontWeight: 'bold', lineHeight: '24px', textAlign: 'left', whiteSpace: 'nowrap' }}>
-                                        <font face="Arial, Helvetica, sans-serif" size="5" style={{ fontSize: '20px' }} color={formData.textColor}>
-                                          <b>{formData.firstName}</b>
-                                        </font>
-                                        &nbsp;
-                                        <font face="Arial, Helvetica, sans-serif" size="5" style={{ fontSize: '20px' }} color="#666666">
-                                          {formData.lastName}
-                                        </font>
-                                      </td>
-                                    </tr>
-                                    <tr>
-                                      <td height="5" style={{ fontSize: '1px', lineHeight: '5px' }} valign="top" align="left">&nbsp;</td>
-                                    </tr>
-                                    <tr>
-                                      <td align="left" valign="top" style={{ fontFamily: 'Arial, Helvetica, sans-serif', fontSize: '11px', color: formData.accentColor, fontWeight: 'bold', letterSpacing: '1px', lineHeight: '14px', textAlign: 'left', whiteSpace: 'nowrap' }}>
-                                        <font face="Arial, Helvetica, sans-serif" size="2" style={{ fontSize: '11px' }} color={formData.accentColor}>
-                                          <b>{formData.title}</b>
-                                        </font>
-                                      </td>
-                                    </tr>
-                                    <tr>
-                                      <td align="left" valign="top" style={{ fontFamily: 'Arial, Helvetica, sans-serif', fontSize: '9px', color: '#999999', fontWeight: 'bold', lineHeight: '12px', textAlign: 'left' }}>
-                                        <font face="Arial, Helvetica, sans-serif" size="1" style={{ fontSize: '9px' }} color="#999999">
-                                          <b>{formData.creci} {formData.creci && formData.cnai && '|'} {formData.cnai}</b>
-                                        </font>
-                                      </td>
-                                    </tr>
-                                    <tr>
-                                      <td height="12" style={{ fontSize: '1px', lineHeight: '12px' }} align="left" valign="top">&nbsp;</td>
-                                    </tr>
-                                    <tr>
-                                      <td align="left" valign="top">
-                                        <table cellPadding="0" cellSpacing="0" border={0} width="100%" align="left">
-                                          <tbody>
-                                            {[
-                                              { icon: 'https://img.icons8.com/material-rounded/24/' + formData.accentColor.replace('#', '') + '/phone.png', text: formData.phone, show: !!formData.phone },
-                                              { icon: 'https://img.icons8.com/material-rounded/24/' + formData.accentColor.replace('#', '') + '/whatsapp.png', text: formData.whatsapp, show: !!formData.whatsapp },
-                                              { icon: 'https://img.icons8.com/material-rounded/24/' + formData.accentColor.replace('#', '') + '/new-post.png', text: formData.email, show: !!formData.email },
-                                              { icon: 'https://img.icons8.com/material-rounded/24/' + formData.accentColor.replace('#', '') + '/globe.png', text: formData.website, show: !!formData.website }
-                                            ].filter(item => item.show).map((item, idx) => (
-                                              <tr key={idx}>
-                                                <td align="left" valign="top" style={{ paddingBottom: '4px' }}>
-                                                  <table cellPadding="0" cellSpacing="0" border={0} align="left">
-                                                    <tbody>
-                                                      <tr>
-                                                        <td width="16" valign="middle" align="left">
-                                                          <img src={item.icon} width="12" height="12" border="0" style={{ display: 'block', border: '0' }} />
-                                                        </td>
-                                                        <td align="left" valign="middle" style={{ paddingLeft: '8px', color: '#444444', fontFamily: 'Arial, Helvetica, sans-serif', fontSize: '10px', fontWeight: 'bold', lineHeight: '12px' }}>
-                                                          <font face="Arial, Helvetica, sans-serif" size="1" style={{ fontSize: '10px' }} color="#444444">
-                                                            <b>{item.text}</b>
-                                                          </font>
-                                                        </td>
-                                                      </tr>
-                                                    </tbody>
-                                                  </table>
-                                                </td>
-                                              </tr>
-                                            ))}
-                                          </tbody>
-                                        </table>
-                                      </td>
-                                    </tr>
-                                  </tbody>
-                                </table>
-                              </td>
-
-                              <td width="15" valign="top" style={{ width: '15px', fontSize: '1px', lineHeight: '1px' }}>&nbsp;</td>
-
-                              {/* Vertical Separator */}
-                              <td width="1" bgcolor="#E0E0E0" valign="top" style={{ width: '1px', backgroundColor: '#E0E0E0', fontSize: '1px', lineHeight: '1px' }}>
-                                &nbsp;
-                              </td>
-
-                              <td width="15" valign="top" style={{ width: '15px', fontSize: '1px', lineHeight: '1px' }}>&nbsp;</td>
-
-                              {/* Logo Column */}
-                              <td width="150" valign="middle" align="center" style={{ width: '150px' }}>
-                                {formData.logoUrl && (
-                                  <table cellPadding="0" cellSpacing="0" border={0} width="100%">
-                                    <tbody>
-                                      <tr>
-                                        <td align="center" valign="middle">
-                                          <img 
-                                            src={formData.logoUrl} 
-                                            alt="Logo" 
-                                            height="45"
-                                            border="0"
-                                            style={{ display: 'block', height: '45px', width: 'auto', border: '0' }} 
-                                            referrerPolicy="no-referrer"
-                                          />
-                                          <table cellPadding="0" cellSpacing="0" border={0} width="30">
-                                            <tbody>
-                                              <tr>
-                                                <td height="10" style={{ fontSize: '1px', lineHeight: '10px' }}>&nbsp;</td>
-                                              </tr>
-                                              <tr>
-                                                <td height="2" bgcolor={formData.accentColor} style={{ height: '2px', backgroundColor: formData.accentColor, fontSize: '1px', lineHeight: '1px' }}>&nbsp;</td>
-                                              </tr>
-                                              <tr>
-                                                <td height="10" style={{ fontSize: '1px', lineHeight: '10px' }}>&nbsp;</td>
-                                              </tr>
-                                            </tbody>
-                                          </table>
-                                          <table cellPadding="0" cellSpacing="0" border={0} width="140">
-                                            <tbody>
-                                              <tr>
-                                                <td align="center" valign="top" style={{ fontFamily: 'Arial, Helvetica, sans-serif', fontSize: '8px', color: '#888888', fontWeight: 'bold', letterSpacing: '1px', lineHeight: '1.4' }}>
-                                                  <font face="Arial, Helvetica, sans-serif" size="1" style={{ fontSize: '8px' }} color="#888888">
-                                                    <b>{formData.slogan}</b>
-                                                  </font>
-                                                </td>
-                                              </tr>
-                                            </tbody>
-                                          </table>
-                                        </td>
-                                      </tr>
-                                    </tbody>
-                                  </table>
-                                )}
-                              </td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </td>
-                    </tr>
-
-                    {/* Pillars Row */}
-                    {formData.showPillars && (
-                      <tr>
-                        <td align="left" valign="top" style={{ paddingTop: '20px' }}>
-                          <table cellPadding="0" cellSpacing="0" border={0} width="650" style={{ borderCollapse: 'collapse' }}>
-                            <tbody>
-                              <tr>
-                                {[
-                                  { title: formData.pillarTitle1, desc: formData.pillarDesc1, icon: 'https://img.icons8.com/ios-filled/50/ffffff/headset.png' },
-                                  { title: formData.pillarTitle2, desc: formData.pillarDesc2, icon: 'https://img.icons8.com/ios-filled/50/ffffff/handshake.png' },
-                                  { title: formData.pillarTitle3, desc: formData.pillarDesc3, icon: 'https://img.icons8.com/ios-filled/50/ffffff/home.png' }
-                                ].map((pillar, idx) => (
-                                  <td key={idx} width="216" align="center" valign="top" style={{ width: '216px', padding: '0 5px' }}>
-                                    <table cellPadding="0" cellSpacing="0" border={0} width="100%" bgcolor="#ffffff" style={{ border: '1px solid #eeeeee' }}>
-                                      <tbody>
-                                        <tr>
-                                          <td align="center" valign="top" style={{ padding: '15px 10px' }}>
-                                            <table cellPadding="0" cellSpacing="0" border={0}>
-                                              <tbody>
-                                                <tr>
-                                                  <td align="center" valign="middle" bgcolor={formData.accentColor} width="22" height="22" style={{ width: '22px', height: '22px', backgroundColor: formData.accentColor }}>
-                                                    <img src={pillar.icon} width="11" height="11" border="0" style={{ display: 'block', border: '0' }} />
-                                                  </td>
-                                                </tr>
-                                              </tbody>
-                                            </table>
-                                            <table cellPadding="0" cellSpacing="0" border={0} width="100%">
-                                              <tbody>
-                                                <tr>
-                                                  <td height="8" style={{ fontSize: '1px', lineHeight: '8px' }}>&nbsp;</td>
-                                                </tr>
-                                                <tr>
-                                                  <td align="center" valign="top" style={{ fontFamily: 'Arial, Helvetica, sans-serif', fontSize: '9px', fontWeight: 'bold', color: formData.textColor, letterSpacing: '0.3px', lineHeight: '12px' }}>
-                                                    <font face="Arial, Helvetica, sans-serif" size="1" style={{ fontSize: '9px' }} color={formData.textColor}>
-                                                      <b>{pillar.title}</b>
-                                                    </font>
-                                                  </td>
-                                                </tr>
-                                                <tr>
-                                                  <td height="5" style={{ fontSize: '1px', lineHeight: '5px' }}>&nbsp;</td>
-                                                </tr>
-                                                <tr>
-                                                  <td align="center" valign="top" style={{ fontFamily: 'Arial, Helvetica, sans-serif', fontSize: '7.5px', color: '#666666', lineHeight: '11px' }}>
-                                                    <font face="Arial, Helvetica, sans-serif" size="1" style={{ fontSize: '7.5px' }} color="#666666">
-                                                      {pillar.desc}
-                                                    </font>
-                                                  </td>
-                                                </tr>
-                                              </tbody>
-                                            </table>
-                                          </td>
-                                        </tr>
-                                        <tr>
-                                          <td height="4" bgcolor={formData.accentColor} style={{ height: '4px', backgroundColor: formData.accentColor, fontSize: '1px', lineHeight: '4px' }}>&nbsp;</td>
-                                        </tr>
-                                      </tbody>
-                                    </table>
+                <div className="bg-white p-6 md:p-12 rounded-[50px] shadow-[0_40px_120px_rgba(0,0,0,0.06)] border border-gray-100 overflow-x-auto">
+                  <div className="mx-auto" style={{ width: '650px' }}>
+                    <table cellPadding="0" cellSpacing="0" border={0} width="650" ref={signatureRef} style={{ 
+                      fontFamily: 'Arial, sans-serif', 
+                      color: formData.textColor,
+                      backgroundColor: '#ffffff',
+                      borderCollapse: 'collapse',
+                      msoTableLspace: '0pt',
+                      msoTableRspace: '0pt'
+                    }}>
+                      <tbody>
+                        <tr>
+                          <td align="left" valign="top" style={{ padding: '0 0 20px 0' }}>
+                            <table cellPadding="0" cellSpacing="0" border={0} width="100%" style={{ borderCollapse: 'collapse' }}>
+                              <tbody>
+                                <tr>
+                                  <td width="4" bgcolor={formData.accentColor} valign="top" style={{ width: '4px', backgroundColor: formData.accentColor, fontSize: '1px' }}>&nbsp;</td>
+                                  <td width="20" style={{ width: '20px' }}>&nbsp;</td>
+                                  <td width="130" valign="middle" align="center">
+                                    <img src={formData.photoUrl} alt="User" width="130" height="130" style={{ display: 'block', borderRadius: '4px' }} referrerPolicy="no-referrer" />
                                   </td>
-                                ))}
-                              </tr>
-                            </tbody>
-                          </table>
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+                                  <td width="20" style={{ width: '20px' }}>&nbsp;</td>
+                                  <td valign="middle" align="left">
+                                    <h2 style={{ margin: 0, fontSize: '22px', fontWeight: 'bold', color: formData.textColor }}>
+                                      {formData.firstName} <span style={{ color: '#666666', fontWeight: 'normal' }}>{formData.lastName}</span>
+                                    </h2>
+                                    <p style={{ margin: '4px 0', fontSize: '12px', fontWeight: 'bold', color: formData.accentColor, textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                      {formData.title}
+                                    </p>
+                                    <p style={{ margin: 0, fontSize: '10px', color: '#999999', fontWeight: 'bold' }}>
+                                      {formData.creci ? `CRECI: ${formData.creci}` : ''} {formData.creci && formData.cnai ? ' | ' : ''} {formData.cnai ? `CNAI: ${formData.cnai}` : ''}
+                                    </p>
+                                    <div style={{ marginTop: '12px' }}>
+                                      <table cellPadding="0" cellSpacing="0" border={0}>
+                                        <tbody>
+                                          {[
+                                            { icon: 'phone', text: formData.phone },
+                                            { icon: 'whatsapp', text: formData.whatsapp },
+                                            { icon: 'new-post', text: formData.email },
+                                            { icon: 'globe', text: formData.website }
+                                          ].filter(i => i.text).map((item, idx) => (
+                                            <tr key={idx}>
+                                              <td style={{ paddingBottom: '3px' }}>
+                                                <img src={`https://img.icons8.com/material-rounded/24/${formData.accentColor.replace('#', '')}/${item.icon}.png`} width="12" height="12" style={{ marginRight: '8px', verticalAlign: 'middle' }} />
+                                                <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#444444' }}>{item.text}</span>
+                                              </td>
+                                            </tr>
+                                          ))}
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  </td>
+                                  <td width="20" style={{ width: '20px' }}>&nbsp;</td>
+                                  <td width="1" bgcolor="#EEEEEE" style={{ width: '1px' }}>&nbsp;</td>
+                                  <td width="20" style={{ width: '20px' }}>&nbsp;</td>
+                                  <td width="160" valign="middle" align="center">
+                                    <img src={formData.logoUrl} alt="Logo" width="120" style={{ marginBottom: '10px' }} referrerPolicy="no-referrer" />
+                                    <div style={{ width: '40px', height: '2px', backgroundColor: formData.accentColor, margin: '8px 0' }} />
+                                    <p style={{ fontSize: '8px', fontWeight: 'bold', color: '#888888', textAlign: 'center', lineHeight: '1.4' }}>{formData.slogan}</p>
+                                  </td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </td>
+                        </tr>
+                        {formData.showPillars && (
+                          <tr>
+                            <td style={{ paddingTop: '20px', borderTop: '1px solid #F0F0F0' }}>
+                              <table width="100%" cellPadding="0" cellSpacing="0">
+                                <tr>
+                                  {[
+                                    { t: formData.pillarTitle1, d: formData.pillarDesc1, i: 'headset' },
+                                    { t: formData.pillarTitle2, d: 'EXPERIÊNCIA COMPROVADA', i: 'handshake' },
+                                    { t: formData.pillarTitle3, d: 'IMÓVEIS SELECIONADOS', i: 'home' }
+                                  ].map((p, i) => (
+                                    <td key={i} align="center" width="33%">
+                                      <div style={{ backgroundColor: formData.accentColor, width: '24px', height: '24px', margin: '0 auto 8px', textAlign: 'center', borderRadius: '4px' }}>
+                                        <img src={`https://img.icons8.com/ios-filled/50/ffffff/${p.i}.png`} width="14" style={{ marginTop: '5px' }} />
+                                      </div>
+                                      <p style={{ fontSize: '9px', fontWeight: 'bold', margin: 0 }}>{p.t}</p>
+                                      <p style={{ fontSize: '7px', color: '#666666', margin: 0 }}>{p.d}</p>
+                                    </td>
+                                  ))}
+                                </tr>
+                              </table>
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex flex-col md:flex-row items-center justify-between mb-4 gap-4">
+                  <div className="flex items-center space-x-2">
+                    <CreditCard className="w-4 h-4 text-[#F27D26]" />
+                    <h2 className="text-sm font-bold uppercase tracking-wider">Design do Cartão (90x50mm)</h2>
+                  </div>
+                  <button
+                    disabled={isExporting}
+                    onClick={downloadFullPDF}
+                    className="flex items-center space-x-2 px-8 py-3 rounded-full text-sm font-extrabold transition-all shadow-xl bg-[#F27D26] text-white hover:bg-orange-600 hover:scale-105 active:scale-95 disabled:opacity-50"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>{isExporting ? 'GERANDO PDF...' : 'BAIXAR PDF PARA IMPRESSÃO'}</span>
+                  </button>
+                </div>
 
-            <div className="bg-white p-8 rounded-3xl border border-gray-100">
-               <h3 className="text-sm font-bold uppercase tracking-wider mb-4 flex items-center gap-2">
-                 <Copy className="w-4 h-4 text-gray-400" />
-                 Como usar?
+                <div className="space-y-16 py-10">
+                  {/* Front Card rendering at double resolution for output quality */}
+                  <div className="flex flex-col items-center">
+                    <div className="mb-4 flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                      <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Frente do Cartão (Posicionamento Premium)</span>
+                    </div>
+                    <div className="bg-white shadow-[0_30px_80px_rgba(0,0,0,0.12)] rounded-sm overflow-hidden" 
+                         style={{ width: '540px', height: '300px' }}>
+                      <div ref={cardFrontRef} style={{ width: '1063px', height: '591px', transform: 'scale(0.508)', transformOrigin: 'top left', backgroundColor: '#ffffff', position: 'relative' }}>
+                        {/* Elegant side bar */}
+                        <div style={{ position: 'absolute', left: 0, top: 0, width: '25px', height: '100%', backgroundColor: formData.accentColor }} />
+                        
+                        <div className="h-full w-full flex flex-col items-center justify-center p-20 text-center">
+                          <img src={formData.logoUrl} alt="Logo" style={{ width: '520px', marginBottom: '45px' }} />
+                          <div style={{ width: '140px', height: '4px', backgroundColor: formData.accentColor, marginBottom: '36px', borderRadius: '2px' }} />
+                          <p style={{ fontFamily: 'Arial', fontWeight: 'bold', fontSize: '26px', color: '#666666', letterSpacing: '10px', textTransform: 'uppercase', lineHeight: '1.4' }}>
+                            {formData.slogan}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Back Card */}
+                  <div className="flex flex-col items-center pb-20">
+                    <div className="mb-4 flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
+                      <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Verso do Cartão (Contatos Nítidos)</span>
+                    </div>
+                    <div className="bg-white shadow-[0_30px_80px_rgba(0,0,0,0.12)] rounded-sm overflow-hidden" 
+                         style={{ width: '540px', height: '300px' }}>
+                      <div ref={cardBackRef} style={{ width: '1063px', height: '591px', transform: 'scale(0.508)', transformOrigin: 'top left', backgroundColor: '#ffffff', display: 'flex', position: 'relative', overflow: 'hidden' }}>
+                         
+                         {/* Subtle geometric watermark */}
+                        <div style={{ position: 'absolute', top: '-100px', right: '-100px', width: '400px', height: '400px', background: `${formData.accentColor}`, opacity: 0.05, borderRadius: '60px', transform: 'rotate(25deg)' }} />
+
+                         {/* Side accent column */}
+                        <div style={{ width: '15px', backgroundColor: formData.accentColor }} />
+                        
+                        <div className="flex-1 flex flex-col justify-between p-16" style={{ position: 'relative', zIndex: 2 }}>
+                          <div className="flex justify-between items-start">
+                            <div className="text-left">
+                              <h2 style={{ fontFamily: 'Arial', fontWeight: 'bold', fontSize: '64px', color: formData.textColor, marginBottom: '6px' }}>
+                                {formData.firstName} <span style={{ color: '#666666', fontWeight: 'normal' }}>{formData.lastName}</span>
+                              </h2>
+                              <div style={{ height: '6px', width: '120px', backgroundColor: formData.accentColor, marginBottom: '20px' }} />
+                              <p style={{ fontFamily: 'Arial', fontWeight: 'bold', fontSize: '28px', color: formData.accentColor, textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '10px' }}>
+                                {formData.title}
+                              </p>
+                              <p style={{ fontFamily: 'Arial', fontWeight: 'bold', fontSize: '22px', color: '#999999' }}>
+                                {formData.creci ? `CRECI: ${formData.creci}` : ''} {formData.creci && formData.cnai ? ' • ' : ''} {formData.cnai ? `CNAI: ${formData.cnai}` : ''}
+                              </p>
+                            </div>
+                            <img src={formData.logoUrl} alt="Logo Small" style={{ width: '280px', marginTop: '10px' }} />
+                          </div>
+
+                          <div className="flex justify-between items-end mt-12">
+                            <div className="space-y-6 pb-4">
+                               {[
+                                 { icon: 'whatsapp', text: formData.whatsapp },
+                                 { icon: 'new-post', text: formData.email },
+                                 { icon: 'globe', text: formData.website },
+                               ].filter(i => i.text).map((item, idx) => (
+                                 <div key={idx} className="flex items-center gap-6">
+                                   <div style={{ width: '56px', height: '56px', borderRadius: '14px', backgroundColor: '#FDF7F2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                      <img src={`https://img.icons8.com/material-rounded/48/${formData.accentColor.replace('#', '')}/${item.icon}.png`} width="28" style={{ margin: '0 auto' }} />
+                                   </div>
+                                   <span style={{ fontSize: '28px', fontWeight: 'bold', color: '#333333', fontFamily: 'Arial' }}>{item.text}</span>
+                                 </div>
+                               ))}
+                            </div>
+
+                            {/* QR Code on Back (Preview) */}
+                            {formData.showQRCode && (
+                              <div style={{ padding: '15px', background: 'white', borderRadius: '16px', boxShadow: '0 10px 40px rgba(0,0,0,0.05)', border: '1px solid #f0f0f0' }}>
+                                <QRCodeSVG 
+                                  value={generateVCard()} 
+                                  size={180} 
+                                  level="M" 
+                                  includeMargin={true}
+                                  fgColor="#000000"
+                                />
+                                <p style={{ fontSize: '14px', fontWeight: '900', textAlign: 'center', marginTop: '12px', color: formData.accentColor, fontFamily: 'Arial', letterSpacing: '2px', textTransform: 'uppercase' }}>
+                                  CONTATO DIGITAL
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+            
+            <div className="bg-white p-10 rounded-[40px] border border-gray-100 mt-8">
+               <h3 className="text-sm font-bold uppercase tracking-widest mb-6 flex items-center gap-3">
+                 <div className="w-1.5 h-6 bg-[#F27D26] rounded-full" />
+                 {appMode === 'signature' ? 'Como Instalar no Outlook/Gmail' : 'Ajustes para Exportação'}
                </h3>
-               <ol className="space-y-4 text-sm text-gray-600">
-                 <li className="flex gap-3">
-                   <span className="flex-shrink-0 w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center text-[10px] font-bold">1</span>
-                   <span>Preencha seus dados na coluna da esquerda. Os campos vazios serão ocultados automaticamente.</span>
-                 </li>
-                 <li className="flex gap-3">
-                   <span className="flex-shrink-0 w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center text-[10px] font-bold">2</span>
-                   <span>Clique no botão <strong>"Copiar Assinatura"</strong> acima para copiar o visual formatado.</span>
-                 </li>
-                 <li className="flex gap-3">
-                   <span className="flex-shrink-0 w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center text-[10px] font-bold">3</span>
-                   <span>No seu Outlook ou Gmail, vá em <strong>Configurações de Assinatura</strong> e simplesmente cole (Ctrl+V) no campo de assinatura.</span>
-                 </li>
-               </ol>
+               
+               {appMode === 'signature' ? (
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-sm text-gray-600">
+                    <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
+                      <p className="font-bold text-[#1D2431] mb-2">Opção 1: Copiar e Colar</p>
+                      <p>Use o botão preto acima para copiar o visual. Depois, basta colar diretamente no campo de assinatura do seu Outlook ou Gmail.</p>
+                    </div>
+                    <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
+                      <p className="font-bold text-[#1D2431] mb-2">Opção 2: Código HTML</p>
+                      <p>Se você usa ferramentas corporativas, pode usar o botão "Visualizar HTML" para pegar o código fonte limpo.</p>
+                    </div>
+                 </div>
+               ) : (
+                 <div className="space-y-4 text-sm text-gray-600">
+                    <p className="leading-relaxed">
+                      O arquivo agora utiliza o formato <strong>90mm x 50mm</strong> com escala de <strong>300 DPI</strong> (ideal para impressão profissional).
+                    </p>
+                    <div className="flex gap-4">
+                      <div className="px-4 py-2 bg-orange-50 text-orange-700 rounded-lg font-bold text-[10px] uppercase">Formato Padrão Gráfica</div>
+                      <div className="px-4 py-2 bg-blue-50 text-blue-700 rounded-lg font-bold text-[10px] uppercase">Exportação Ultra-HD</div>
+                    </div>
+                 </div>
+               )}
             </div>
           </div>
 
@@ -600,9 +705,10 @@ export default function App() {
 
       <footer className="py-12 px-8 text-center border-t border-gray-100 mt-12">
         <p className="text-xs text-gray-400 font-medium uppercase tracking-[0.2em]">
-          &copy; {new Date().getFullYear()} Morada Urbana &bull; Design by AI Studio
+          &copy; {new Date().getFullYear()} Morada Urbana &bull; Studio Pro v2.5
         </p>
       </footer>
     </div>
   );
 }
+
