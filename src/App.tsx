@@ -20,8 +20,12 @@ import {
   CreditCard,
   Download,
   Layout,
-  QrCode
+  QrCode,
+  Upload,
+  Loader2
 } from 'lucide-react';
+// @ts-ignore
+import firebaseConfig from '../firebase-applet-config.json';
 
 // Default values based on the Morada Urbana theme
 const DEFAULT_VALUES = {
@@ -68,10 +72,47 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('preview');
   const [appMode, setAppMode] = useState<'signature' | 'card'>('signature');
   const [isExporting, setIsExporting] = useState(false);
+  const [isUploading, setIsUploading] = useState<string | null>(null);
   
   const signatureRef = useRef<HTMLTableElement>(null);
   const cardFrontRef = useRef<HTMLDivElement>(null);
   const cardBackRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [activeUploadField, setActiveUploadField] = useState<'logoUrl' | 'photoUrl' | null>(null);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !activeUploadField) return;
+
+    // Check file size (recommend < 1MB for base64 e-mail compatibility)
+    if (file.size > 1024 * 1024) {
+      alert('A imagem é muito grande. Para melhor compatibilidade em e-mails, use fotos com menos de 1MB.');
+    }
+
+    const reader = new FileReader();
+    setIsUploading(activeUploadField);
+    
+    reader.onload = (event) => {
+      const base64 = event.target?.result as string;
+      setFormData(prev => ({ ...prev, [activeUploadField]: base64 }));
+      setIsUploading(null);
+      setActiveUploadField(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
+    reader.onerror = () => {
+      alert('Erro ao processar imagem localmente.');
+      setIsUploading(null);
+    };
+
+    reader.readAsDataURL(file);
+  };
+
+  const triggerUpload = (field: 'logoUrl' | 'photoUrl') => {
+    setActiveUploadField(field);
+    fileInputRef.current?.click();
+  };
 
   useEffect(() => {
     localStorage.setItem('signature_data', JSON.stringify(formData));
@@ -155,6 +196,14 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] text-[#1D2431] font-sans pb-20">
+      {/* Hidden File Input */}
+      <input 
+        type="file" 
+        ref={fileInputRef} 
+        onChange={handleFileUpload} 
+        accept="image/*"
+        style={{ display: 'none' }} 
+      />
       {/* Hidden Export Rendering Area (To avoid scale issues) */}
       <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
         <div id="export-front" style={{ width: '1063px', height: '591px', backgroundColor: '#ffffff', position: 'relative' }}>
@@ -399,16 +448,33 @@ export default function App() {
                         <label htmlFor={field.id} className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">
                           {field.label}
                         </label>
-                        <div className="relative group">
-                          <field.icon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300 group-focus-within:text-[#F27D26] transition-colors" />
-                          <input
-                            id={field.id}
-                            type="text"
-                            name={field.id}
-                            value={(formData as any)[field.id]}
-                            onChange={handleChange}
-                            className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#F27D26]/10 focus:border-[#F27D26]"
-                          />
+                        <div className="flex gap-2">
+                          <div className="relative group flex-1">
+                            <field.icon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300 group-focus-within:text-[#F27D26] transition-colors" />
+                            <input
+                              id={field.id}
+                              type="text"
+                              name={field.id}
+                              value={(formData as any)[field.id]}
+                              onChange={handleChange}
+                              className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#F27D26]/10 focus:border-[#F27D26]"
+                            />
+                          </div>
+                          {(field.id === 'logoUrl' || field.id === 'photoUrl') && (
+                            <button
+                              type="button"
+                              onClick={() => triggerUpload(field.id as any)}
+                              disabled={isUploading !== null}
+                              className="px-3 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl transition-colors flex items-center justify-center gap-2 border border-gray-100 disabled:opacity-50"
+                              title="Fazer Upload"
+                            >
+                              {isUploading === field.id ? (
+                                <Loader2 className="w-4 h-4 animate-spin text-[#F27D26]" />
+                              ) : (
+                                <Upload className="w-4 h-4" />
+                              )}
+                            </button>
+                          )}
                         </div>
                       </div>
                     ))}
